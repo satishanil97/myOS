@@ -1,0 +1,42 @@
+load(7,1);	//loads exception handler from block 1 & 2 to memory page 7 & 8
+load(8,2);	
+load(23,17);	//loads int7 routine from block 17,18 to page 23,24
+load(24,18);
+load(5,19);	//FAT	
+load(6,20);	//DF list
+
+[READY_LIST + 0] = 0;	//sets entrty for PID as 0
+
+load(25,21);	//load 1st page of code from disk to memory
+load(26,22);	//2nd page of code
+load(27,23);	//3rd page of code
+
+PTBR = PAGE_TABLE;	//PAGE_TABLE stores 1024 which is start address of Page Table (for INIT PID = 0)
+
+PTLR = 4; 	//in xos every process has 4 entries
+
+[PTBR + 0] = 25;	//Physical page no for logical page 0
+[PTBR + 1] = "01";	//Aux info for logical page 0
+
+[PTBR + 2] = 26;        
+[PTBR + 3] = "01"; 
+
+[PTBR + 4] = 27;        
+[PTBR + 5] = "01"; 
+
+[PTBR + 6] = 28; 	//Physical Page no for logical page 3 (stack)       
+[PTBR + 7] = "01"; 
+
+[READY_LIST + 1] = 2;	//sets entry for STATE field in PCB as Running 
+
+SP = 3*512;	//setting stack pointer to starting logical address
+
+[28*512] = 0;	//set up IP value for INIT in the stack
+
+load(11,5);	//load interrupt 1 routine from disk to memory
+load(12,6);
+
+load(9,3);	//load the timer interrupt from disk to memory
+load(10,4);
+ireturn;
+

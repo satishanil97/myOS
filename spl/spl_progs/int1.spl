@@ -1,0 +1,91 @@
+alias physicalSP S0;
+physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+
+alias sysCallNo S1;
+
+sysCallNo = [physicalSP - 1];
+
+// Get system call no. from the stack and put it in a register
+// Get arguments from stack and put it in registers
+
+alias filename S2;
+
+filename = [physicalSP - 3];
+
+alias i S3;
+
+alias DF S4;
+alias basic S5;
+alias freeFAT S6;
+
+DF = 6*512;
+
+basic = -1;
+freeFAT = -1;
+
+if ( sysCallNo == 1) then
+	// Implementation of Create
+	
+	i = 0;
+	
+	while(i < 512) do
+		if(filename == [FAT + i]) then
+			[physicalSP - 2] = 0;
+			ireturn;
+		endif;
+
+		i = i + 8;
+	endwhile;
+
+	i = 0;
+	
+	while(i <= 447) do
+		if([DF + i] == 0) then
+			basic = i;
+			break;
+		endif;
+		i = i + 1;
+	endwhile;
+
+	i = 0;
+	
+	while(i < 512) do
+                if([FAT + i + 2] == -1) then
+                        freeFAT = FAT + i;
+			break;
+                endif;
+		i = i + 8;
+	endwhile;
+
+
+	if((freeFAT == -1)||(basic == -1)) then
+		[physicalSP - 2] = -1;
+                ireturn;
+	endif;
+
+	[freeFAT + 0] = filename;
+	[freeFAT + 1] = 0;
+	[freeFAT + 2] = basic;	
+	
+	load(1,basic);
+	
+	i = 0;
+	while(i <= 511) do
+		[512 + i] = -1;
+		i = i + 1;
+	endwhile;
+	
+	S7 = basic;
+	breakpoint;
+	store(1,basic);
+
+	[DF + basic] = 1;
+
+	store(5,19);
+	store(6,20);
+	[physicalSP - 2] = 0;
+	
+	ireturn;
+endif;	
+
+ireturn;

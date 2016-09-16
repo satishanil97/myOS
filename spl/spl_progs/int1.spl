@@ -1,91 +1,59 @@
 alias physicalSP S0;
-physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
-
 alias sysCallNo S1;
-
-sysCallNo = [physicalSP - 1];
-
-// Get system call no. from the stack and put it in a register
-// Get arguments from stack and put it in registers
-
 alias filename S2;
 
-filename = [physicalSP - 3];
+physicalSP = [PTBR + 2*(SP/512)]*512  + (SP%512);
+sysCallNo = [physicalSP - 1];
+S2 = [physicalSP - 3];
+breakpoint;
 
-alias i S3;
-
-alias DF S4;
-alias basic S5;
-alias freeFAT S6;
-
-DF = 6*512;
-
-basic = -1;
-freeFAT = -1;
-
-if ( sysCallNo == 1) then
-	// Implementation of Create
-	
-	i = 0;
-	
-	while(i < 512) do
-		if(filename == [FAT + i]) then
-			[physicalSP - 2] = 0;
+if(sysCallNo == 1) then
+	alias i S3;
+	i = FAT;
+	while(i!=FAT+512) do
+		if([i]==S2) then //file exists
+			[physicalSP - 2]=0;  //success
 			ireturn;
 		endif;
-
-		i = i + 8;
+		i = i+8;
 	endwhile;
-
-	i = 0;
 	
-	while(i <= 447) do
-		if([DF + i] == 0) then
-			basic = i;
-			break;
-		endif;
-		i = i + 1;
+	i = 3072;
+	while(i<=3519 && [i]!=0) do //search for empty blocks
+		i = i+1;
 	endwhile;
-
-	i = 0;
-	
-	while(i < 512) do
-                if([FAT + i + 2] == -1) then
-                        freeFAT = FAT + i;
-			break;
-                endif;
-		i = i + 8;
-	endwhile;
-
-
-	if((freeFAT == -1)||(basic == -1)) then
-		[physicalSP - 2] = -1;
-                ireturn;
+	if(i==3520) then
+		[physicalSP - 2] = -1; //no free blocks. Failure
+		ireturn;
 	endif;
-
-	[freeFAT + 0] = filename;
-	[freeFAT + 1] = 0;
-	[freeFAT + 2] = basic;	
+	i = i-3072; //get the block number of the free block
 	
-	load(1,basic);
-	
-	i = 0;
-	while(i <= 511) do
-		[512 + i] = -1;
-		i = i + 1;
+	alias j S4;
+	j = FAT;
+	while(j < FAT+512 && [j+2]!=-1) do //search for an empty fat entry(basic block is -1)
+		j = j+8;
 	endwhile;
+	if(j==FAT+512) then
+		[physicalSP - 2] = -1;
+		ireturn;
+	endif;
+	[j] = filename;
+	[j+1] = 0;
+	[j+2] = i;
 	
-	S7 = basic;
-	breakpoint;
-	store(1,basic);
+	load(1,[j+2]); //load basic block to scratchpad
+	i = 512;
+	while(i<1024) do
+		[i] = -1; //set all entries in the basic block to -1. No data blocks for this file.
+		i = i+1;
+	endwhile;
+	store(1,[j+2]); //store the basic block back into the disk
 
-	[DF + basic] = 1;
-
-	store(5,19);
+	[3072 + [j+2]] = 1; //df entry set to 1. Used.
+	store(5,19); //store the updated copies of FAT and df
 	store(6,20);
-	[physicalSP - 2] = 0;
-	
+	[physicalSP-2] = 0;
 	ireturn;
-endif;	
+endif;
 
-ireturn;
+	

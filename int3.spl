@@ -1,0 +1,147 @@
+alias physicalSP S0;
+alias sysCallNo S1;
+
+physicalSP = [PTBR + 2*(SP/512)]*512  + (SP%512);
+sysCallNo = [physicalSP - 1];
+
+if(sysCallNo == 6) then
+		alias filedesc S2;
+    alias newLSEEK S3;
+
+    filedesc = [physicalSP - 4];
+    newLSEEK = [physicalSP - 3];
+
+    if(filedesc < 0 || filedesc > 7) then
+        [physicalSP - 2] = -1;
+        ireturn;
+    endif;
+
+    alias currentPID S8;
+    alias currentPCB S9;
+
+    currentPID = (PTBR - 1024)/8;               //pid of the current process
+    currentPCB = READY_LIST + 32*currentPID;    //location of the PCB of the current process
+
+    if( [currentPCB + 15 + filedesc*2] == -1 ) then
+        [physicalSP - 2] = -1;
+        ireturn;
+    endif;
+
+    alias SOFT_index S4;
+
+    SOFT_index = [currentPCB + 15 + filedesc*2];
+
+    alias SOFT S5;
+    alias FAT_index S6;
+
+    SOFT = 1344;
+
+    FAT_index = [SOFT + SOFT_index*2];
+
+    alias fileSize S7;
+
+    fileSize = [FAT + FAT_index*8 + 1];
+
+    if(newLSEEK < 0 || newLSEEK >= fileSize) then
+        [physicalSP - 2] = -1;
+        ireturn;
+    endif;
+
+    [currentPCB + 15 + filedesc*2 + 1] = newLSEEK;
+
+    [physicalSP - 2] = 0;
+    ireturn;
+
+endif;
+
+if(sysCallNo == 7) then
+		alias filedesc S2;
+    alias wordRead S3;
+
+    filedesc = [physicalSP - 4];
+    wordRead = [physicalSP - 3];
+
+    if(filedesc < 0 || filedesc > 7) then
+        [physicalSP - 2] = -1;
+        ireturn;
+    endif;
+
+    alias currentPID S4;
+    alias currentPCB S5;
+
+    currentPID = (PTBR - 1024)/8;               //pid of the current process
+    currentPCB = READY_LIST + 32*currentPID;    //location of the PCB of the current process
+
+    if( [currentPCB + 15 + filedesc*2 + 0] == -1 ) then
+        [physicalSP - 2] = -1;
+        ireturn;
+    endif;
+
+		alias SOFT_index S6;
+		alias LSEEK S7;
+
+		SOFT_index = [currentPCB + 15 + filedesc*2 + 0];
+		LSEEK = [currentPCB + 15 + filedesc*2 + 1];
+
+		alias FAT_index S8;
+
+		FAT_index = [1344 + SOFT_index*2 + 0];
+
+		alias i S9;
+
+		i = [FAT + FAT_index*8 + 2];
+
+		load(1,i);
+
+		if(LSEEK == [FAT + FAT_index*8 + 1]) then
+			[physicalSP - 2] = -1;
+			ireturn;
+		endif;
+
+		alias index S10;
+
+    index = LSEEK/512;
+    alias j S11;
+
+    if([512 + index] == -1) then
+
+      j = 0;
+
+      while( ([3072 + j] != 0) && (j < 448) ) do
+        j = j + 1;
+      endwhile;
+
+      if(j > 447) then
+        [physicalSP - 2] = -1;
+        ireturn;
+      endif;
+
+      [3072 + j] = 1;
+
+      [512 + index] = j;
+
+      store(1,i);
+
+      [FAT + FAT_index*8 + 1] = [FAT + FAT_index*8 + 1] + 512;
+
+      store(5,19);
+      store(6,20);
+
+    endif;
+
+    j = [512 + index];
+
+    load(1,j);
+
+    wordRead = [512 + LSEEK%512];
+
+		[physicalSP - 3] = wordRead;
+
+		[currentPCB + 15 + filedesc*2 + 1] = [currentPCB + 15 + filedesc*2 + 1] + 1;
+
+    [physicalSP - 2] = 0;
+    ireturn;
+
+endif;
+
+ireturn;

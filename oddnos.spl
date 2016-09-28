@@ -1,0 +1,23 @@
+alias counter S0;
+alias n S1;
+<<<<<<< HEAD
+print "Enter n:";
+read n;
+counter = 0;
+while (counter <= n) do
+	if(counter%2 != 0) then
+=======
+print "Enter n : ";
+read n;
+counter = 0;
+while(counter <= n) do
+	if(counter % 2 != 0) then
+>>>>>>> 402366b0a84fd3361888ccdcf02e6c30a3dd6345
+		print counter;
+	endif;
+	counter = counter + 1;
+endwhile;
+<<<<<<< HEAD
+
+=======
+>>>>>>> 402366b0a84fd3361888ccdcf02e6c30a3dd6345

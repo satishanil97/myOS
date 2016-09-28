@@ -1,0 +1,133 @@
+alias physicalSP S0;
+alias sysCallNo S1;
+
+
+physicalSP = [PTBR + 2*(SP/512)]*512  + (SP%512);
+sysCallNo = [physicalSP - 1];
+
+
+if(sysCallNo == 2) then
+    alias filename S2;
+    filename = [physicalSP - 3];
+
+    alias i S3;
+    alias c S4;
+	  i = 0;
+    c = 0;
+
+	while(i < 512) do
+		if([FAT + i] == filename) then        //file exists
+			c=1;  //success
+			break;
+		endif;
+		i = i+8;
+	endwhile;
+
+    if(c == 0) then
+        [physicalSP - 2] = -1;
+        ireturn;
+    endif;
+
+    alias index S5;
+    index = i/8;
+
+    alias SOFT S6;
+    SOFT = 1344;
+
+    alias SOFT_index S7;
+
+    i = 0;
+
+    while( ([SOFT + i] != index) && (i < 128) ) do      //checking if its already opened
+        i = i + 2;
+    endwhile;
+
+    if(i > 127) then
+        i = 0;
+
+        while( ([SOFT + i] != -1) && (i < 128) ) do
+            i = i + 2;
+        endwhile;
+
+        if(i > 127) then
+            [physicalSP - 2] = -1;
+            ireturn;
+        endif;
+
+    endif;
+
+    SOFT_index = i/2;
+
+    alias currentPID S8;
+    alias currentPCB S9;
+
+    currentPID = (PTBR - 1024)/8;               //pid of the current process
+    currentPCB = READY_LIST + 32*currentPID;    //location of the PCB of the current process
+
+    i = 0;
+
+    while( ([currentPCB + 15 + i] != -1) && (i < 16) ) do     //check for space in per process open file table
+        i = i + 2;
+    endwhile;
+
+    if(i > 15) then
+        [physicalSP - 2] = -1;
+        ireturn;
+    endif;
+
+    alias POFT_index S10;
+
+    POFT_index = i/2;
+
+    [currentPCB + 15 + i + 0] = SOFT_index;
+    [currentPCB + 15 + i + 1] = 0;
+
+    [SOFT + SOFT_index*2 + 0] = index;
+    [SOFT + SOFT_index*2 + 1] = [SOFT + SOFT_index*2 + 1] + 1;
+
+    [physicalSP - 2] = POFT_index;
+    ireturn;
+
+endif;
+
+if(sysCallNo == 3) then
+    alias filedesc S2;
+    filedesc = [physicalSP - 3];
+
+    if( (filedesc < 0) || (filedesc > 7) ) then
+        [physicalSP - 2] = -1;
+        ireturn;
+    endif;
+
+    alias currentPID S8;
+    alias currentPCB S9;
+
+    currentPID = (PTBR - 1024)/8;               //pid of the current process
+    currentPCB = READY_LIST + 32*currentPID;    //location of the PCB of the current process
+
+    if( [currentPCB + 15 + filedesc*2] == -1 ) then
+        [physicalSP - 2] = -1;
+        ireturn;
+    endif;
+
+    alias SOFT S6;
+    SOFT = 1344;
+
+    alias SOFT_index S3;
+    SOFT_index = [currentPCB + 15 + filedesc*2];
+
+    [SOFT + SOFT_index*2 + 1] = [SOFT + SOFT_index*2 + 1] - 1;
+
+    if( [SOFT + SOFT_index*2 + 1] == 0 ) then
+        [SOFT + SOFT_index*2 + 0] = -1;
+    endif;
+
+    [currentPCB + 15 + filedesc*2 + 0] = -1;
+    [currentPCB + 15 + filedesc*2 + 1] = -1;
+
+    [physicalSP - 2] = 0;
+    ireturn;
+
+endif;
+
+ireturn;

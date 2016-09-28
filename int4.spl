@@ -1,0 +1,93 @@
+alias physicalSP S0;
+alias sysCallNo S1;
+
+physicalSP = [PTBR + 2*(SP/512)]*512  + (SP%512);
+sysCallNo = [physicalSP - 1];
+
+if(sysCallNo == 5) then
+		alias filedesc S2;
+    alias wrd S3;
+
+    filedesc = [physicalSP - 4];
+    wrd = [physicalSP - 3];
+
+    if( (filedesc < 0) || (filedesc > 7) ) then
+        [physicalSP - 2] = -1;
+        ireturn;
+    endif;
+
+    alias currentPID S4;
+    alias currentPCB S5;
+
+    currentPID = (PTBR - 1024)/8;               //pid of the current process
+    currentPCB = READY_LIST + 32*currentPID;    //location of the PCB of the current process
+
+    if( [currentPCB + 15 + filedesc*2] == -1 ) then
+        [physicalSP - 2] = -1;
+        ireturn;
+    endif;
+
+    alias SOFT S6;
+    SOFT = 1344;
+
+    alias SOFT_index S7;
+    SOFT_index = [currentPCB + 15 + filedesc*2];
+
+    alias FAT_index S8;
+    alias LSEEK S9;
+
+    LSEEK = [currentPCB + 15 + filedesc*2 + 1];
+    FAT_index = [SOFT + SOFT_index*2 + 0];
+
+    alias i S10;
+
+    i = [FAT + FAT_index*8 + 2];
+    load(1,i);
+
+    alias index S11;
+
+    index = LSEEK/512;
+    alias j S12;
+
+    if([512 + index] == -1) then
+
+      j = 0;
+
+      while( ([3072 + j] != 0) && (j < 448) ) do
+        j = j + 1;
+      endwhile;
+
+      if(j > 447) then
+        [physicalSP - 2] = -1;
+        ireturn;
+      endif;
+
+      [3072 + j] = 1;
+
+      [512 + index] = j;
+
+      store(1,i);
+
+      [FAT + FAT_index*8 + 1] = [FAT + FAT_index*8 + 1] + 512;
+
+      store(5,19);
+      store(6,20);
+
+    endif;
+
+    j = [512 + index];
+
+    load(1,j);
+
+    [512 + LSEEK%512] = wrd;
+
+    store(1,j);
+
+    [currentPCB + 15 + filedesc*2 + 1] = [currentPCB + 15 + filedesc*2 + 1] + 1;
+
+    [physicalSP - 2] = 0;
+    ireturn;
+
+endif;
+
+ireturn;
